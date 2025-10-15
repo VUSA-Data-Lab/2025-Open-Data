@@ -13,9 +13,9 @@ Please do not include any confidential, personal, or sensitive information in yo
 LT:
 2025 m. VUŠA Atvirųjų duomenų laboratorijos studentų programavimo projektai.
 Kiekvienam studentų darbui šios repozitorijos aplanke ./students/ turėtų būti sukurtas atskiras aplankas.
-To aplanko turinį turėtų prižiūrėti ir atnaujinti projektą vykdantis studentas arba studentų komanda.
+To aplanko turinį prižiūri ir atnaujina projektą vykdantis studentas arba studentų komanda.
 
-⚠️ Pastaba: Šis repozitorijus yra viešas.
+⚠️ Pastaba: Ši repozitorija yra vieša.
 Prašome nedėti konfidencialios, asmeninės ar jautrios informacijos į projekto failus.
 
 Mykolas Okulič-Kazarinas, VUŠA, 2025
