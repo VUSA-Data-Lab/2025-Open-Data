@@ -45,7 +45,12 @@ df = df[columns]
 # Konvertuojame datą į datetime formatą
 df["stebejimo_laikas"] = pd.to_datetime(df["stebejimo_laikas"])
 
+#Papildomi požymiai (vėsinimo/šildymo indeksas)
+#Šilumos poreikio indeksas, jei temperatūra>10
+df["silumos poreikis"] = df["oro_temp"].apply(lambda x: 10 - x if x < 10 else 0)
 
+#Vėsinimo poreikio indeksas, jei temperatūra > 25
+df["vesinimo_poreikis"] = df["oro_temp"].apply(lambda x: x -25 if x > 25 else 0)
 # DUOMENŲ IŠVESTIS (PIRMOS 10 EILUČIŲ)
 
 print("🔹 Meteorologinių duomenų ištrauka (pirmos 10 eilučių):")
