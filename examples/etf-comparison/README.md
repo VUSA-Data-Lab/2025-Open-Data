@@ -26,6 +26,14 @@ Sugeneruoti grafikai:
 | CSPX | CSPX.DE | iShares S&P 500 UCITS (kaupiantis) |
 | WDEF | WDEF.DE | WisdomTree Europe Defence UCITS |
 
+## Streamlit Dashboard (interaktyvus naršyklėje)
+
+Norėdami paleisti interaktyvų ETF palyginimo grafikų dashboardą:
+
+1. Atidarykite Codespace:
+   Code → Open in Codespaces
+2. Paleiskite komandą terminale:
+
 ## Keitimas studentų užduotims
 
 Norint palyginti kitus ETF, keiskite `tickers` sąrašą `analysis.py` faile.
