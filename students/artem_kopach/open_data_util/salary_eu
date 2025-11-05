@@ -1,0 +1,111 @@
+"""
+Eurostat Salary Analysis in Europe
+----------------------------------
+
+This program retrieves open data from the official Eurostat API to analyze
+average hourly earnings across European countries.
+
+Dataset: Median hourly earnings by sex
+Source: https://ec.europa.eu/eurostat/databrowser/view/earn_ses_pub2s/default/table?lang=en
+
+Author: Artem Kopach
+Language: Python 3
+Libraries: requests, pandas, matplotlib
+PEP8 compliant
+"""
+
+import requests
+import pandas as pd
+import matplotlib.pyplot as plt
+
+
+# =========================
+# 1. Configuration
+# =========================
+API_URL = "https://ec.europa.eu/eurostat/api/dissemination/statistics/1.0/data/earn_ses_pub2s"
+PARAMS = {
+    "sex": "T",       # Total (both sexes)
+    "unit": "EUR",    # Euro currency
+    "time": "2022"    # Most recent available year
+}
+
+
+# =========================
+# 2. Data Acquisition
+# =========================
+def fetch_data():
+    """Fetch salary data from Eurostat API."""
+    print("Fetching data from Eurostat API...")
+    response = requests.get(API_URL, params=PARAMS)
+    response.raise_for_status()
+    print("✅ Data successfully retrieved.")
+    return response.json()
+
+
+# =========================
+# 3. Data Processing
+# =========================
+def parse_data(json_data):
+    """Convert Eurostat JSON response to a clean DataFrame."""
+    print("Processing JSON data...")
+
+    # Extract dimensions and observations
+    countries = json_data["dimension"]["geo"]["category"]["index"]
+    values = json_data["value"]
+
+
+    geo_labels = json_data["dimension"]["geo"]["category"]["label"]
+
+    # Build dataframe
+    df = pd.DataFrame([
+        {"Country": geo_labels[country], "Earnings (EUR/hour)": values[str(i)]}
+        for country, i in countries.items() if str(i) in values
+    ])
+
+    # Sort descending
+    df.sort_values(by="Earnings (EUR/hour)", ascending=False, inplace=True)
+    print("✅ Data processed into DataFrame.")
+    return df
+
+
+# =========================
+# 4. Visualization
+# =========================
+def visualize(df):
+    """Plot the top 10 European countries by median hourly earnings."""
+    print("Generating visualization...")
+    top10 = df.head(10)
+
+    plt.figure(figsize=(10, 6))
+    plt.barh(top10["Country"], top10["Earnings (EUR/hour)"], color="skyblue")
+    plt.xlabel("Median Hourly Earnings (EUR)")
+    plt.ylabel("Country")
+    plt.title("Top 10 European Countries by Median Hourly Earnings (2022)")
+    plt.gca().invert_yaxis()
+    plt.tight_layout()
+    plt.show()
+    print("✅ Visualization complete.")
+
+
+# =========================
+# 5. Main
+# =========================
+def main():
+    """Main function to execute the full workflow."""
+    try:
+        data_json = fetch_data()
+        df = parse_data(data_json)
+
+        print("\nSample of processed data:")
+        print(df.head(10).to_string(index=False))
+
+        visualize(df)
+        print("\nProgram completed successfully.")
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Failed to retrieve data from Eurostat: {e}")
+    except Exception as ex:
+        print(f"❌ Error: {ex}")
+
+
+if __name__ == "__main__":
+    main()
