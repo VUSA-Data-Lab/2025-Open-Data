@@ -1,12 +1,12 @@
 # Bazinė aplinka su Ubuntu
 FROM mcr.microsoft.com/devcontainers/base:ubuntu
+RUN apt-get update -y
 
 # Įdiegiame Python ir pip
-RUN apt-get update && \
-    apt-get install -y python3 python3-pip
+# RUN apt-get install -y python3 python3-pip
 
 # Įdiegiame PHP ir Composer
-RUN apt-get install -y php-cli composer
+# RUN apt-get install -y php-cli composer
 
 # Nustatome numatytą darbo katalogą
 WORKDIR /workspaces/2025-Open-Data/students
