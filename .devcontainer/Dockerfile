@@ -6,6 +6,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Atnaujiname paketų sąrašą
 RUN apt-get update -y
 
+# Įdiegiame reikalingas sistemines bibliotekas Python paketams
+RUN apt-get install -y build-essential
+RUN apt-get install -y libatlas-base-dev
+RUN apt-get install -y liblapack-dev
+RUN apt-get install -y gfortran
+
 # Įdiegiame Python ir pip
 RUN apt-get install -y python3 python3-pip
 
