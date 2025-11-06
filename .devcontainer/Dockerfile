@@ -1,4 +1,4 @@
-# Bazine aplinka su Ubuntu
+# Bazinė aplinka su Ubuntu
 FROM mcr.microsoft.com/devcontainers/base:ubuntu
 
 # Įdiegiame Python ir pip
@@ -9,7 +9,7 @@ RUN apt-get update && \
 RUN apt-get install -y php-cli composer
 
 # Nustatome numatytą darbo katalogą
-WORKDIR /workspaces
+WORKDIR /workspaces/2025-Open-Data/students
 
 # Nustatome numatytą shell
 SHELL ["/bin/bash", "-c"]
