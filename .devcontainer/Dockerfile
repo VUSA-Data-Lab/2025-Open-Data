@@ -1,4 +1,5 @@
 FROM mcr.microsoft.com/devcontainers/base:ubuntu
+RUN apt-get update -y
 
 # Vengti interaktyvių dialogų diegimo metu
 ENV DEBIAN_FRONTEND=noninteractive
