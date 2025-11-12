@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Open Data</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1,
+        h2 {
+            color: #333;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 60%;
+            margin-bottom: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+        }
+
+        #chartContainer {
+            width: 800px;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+
+        #chartContainerLithuania {
+            width: 800px;
+            height: 400px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Alcohol-Attributable Death Rates in Russia, Poland, and Lithuania (2002–2021)</h1>
+
+    <h2>Visualizations</h2>
+    <div id="visualizations">
+        <h3>Table of Death Rates (per 100,000)</h3>
+        <table id="dataTable">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Poland</th>
+                    <th>Russia</th>
+                    <th>Lithuania</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3>Line Chart: Poland vs Russia</h3>
+        <div id="chartContainer"><canvas id="deathRateChart"></canvas></div>
+
+        <h3>Line Chart: Lithuania</h3>
+        <div id="chartContainerLithuania"><canvas id="deathRateChartLithuania"></canvas></div>
+
+        <h3>Average Death Rates (2002–2021)</h3>
+        <p id="averages"></p>
+
+        <h3>Trend Analysis (Linear Slope)</h3>
+        <p id="trends"></p>
+    </div>
+
+    <script>
+        async function loadData() {
+            try {
+                const response = await fetch('alcoholdeath.csv');
+                const csvText = await response.text();
+                const rows = csvText.split('\n').slice(1);
+                const data = rows.map(row => {
+                    const cols = row.split(',');
+                    if (cols.length < 16) return null;
+                    return {
+                        entity: cols[3].trim(),
+                        year: parseInt(cols[12].trim()),
+                        rate: parseFloat(cols[13].trim())
+                    };
+                }).filter(item => item && !isNaN(item.year) && !isNaN(item.rate));
+
+                const filteredData = data.filter(d =>
+                    (d.entity === 'Poland' || d.entity === 'Russian Federation' || d.entity === 'Lithuania') &&
+                    d.year >= 2002 && d.year <= 2021
+                );
+
+                if (filteredData.length === 0) {
+                    document.getElementById('visualizations').innerHTML += '<p>No data available for the specified countries and years.</p>';
+                    return;
+                }
+
+                processData(filteredData);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('visualizations').innerHTML += '<p>Error loading data from alcoholdeath.csv. Ensure the file is in the same directory and accessible.</p>';
+            }
+        }
+
+        function processData(filteredData) {
+            const years = [...new Set(filteredData.map(d => d.year))].sort((a, b) => a - b);
+            const polandData = filteredData.filter(d => d.entity === 'Poland');
+            const russiaData = filteredData.filter(d => d.entity === 'Russian Federation');
+            const lithuaniaData = filteredData.filter(d => d.entity === 'Lithuania');
+
+            // === Unified Table (Poland, Russia, Lithuania) ===
+            const tableBody = document.getElementById('dataTable').querySelector('tbody');
+            tableBody.innerHTML = ''; // Clear previous rows
+            years.forEach(year => {
+                const polRate = polandData.find(d => d.year === year)?.rate || 'N/A';
+                const rusRate = russiaData.find(d => d.year === year)?.rate || 'N/A';
+                const litRate = lithuaniaData.find(d => d.year === year)?.rate || 'N/A';
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${year}</td>
+                    <td>${typeof polRate === 'number' ? polRate.toFixed(2) : polRate}</td>
+                    <td>${typeof rusRate === 'number' ? rusRate.toFixed(2) : rusRate}</td>
+                    <td>${typeof litRate === 'number' ? litRate.toFixed(2) : litRate}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            // === Chart: Poland vs Russia ===
+            const ctx = document.getElementById('deathRateChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'Poland',
+                            data: years.map(y => polandData.find(d => d.year === y)?.rate || null),
+                            borderColor: 'blue',
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Russia',
+                            data: years.map(y => russiaData.find(d => d.year === y)?.rate || null),
+                            borderColor: 'red',
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: 'Poland vs Russia' }
+                    },
+                    scales: {
+                        y: { title: { display: true, text: 'Deaths per 100,000' } },
+                        x: { title: { display: true, text: 'Year' } }
+                    }
+                }
+            });
+
+            // === Chart: Lithuania (Separate) ===
+            const ctxLit = document.getElementById('deathRateChartLithuania').getContext('2d');
+            new Chart(ctxLit, {
+                type: 'line',
+                data: {
+                    labels: years,
+                    datasets: [
+                        {
+                            label: 'Lithuania',
+                            data: years.map(y => lithuaniaData.find(d => d.year === y)?.rate || null),
+                            borderColor: 'green',
+                            backgroundColor: 'rgba(0, 128, 0, 0.1)',
+                            fill: false,
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        title: { display: true, text: 'Lithuania' }
+                    },
+                    scales: {
+                        y: { title: { display: true, text: 'Deaths per 100,000' } },
+                        x: { title: { display: true, text: 'Year' } }
+                    }
+                }
+            });
+
+            // === Helper: Linear Regression Slope ===
+            const calcSlope = (countryData) => {
+                const n = countryData.length;
+                if (n < 2) return 0;
+                const sumX = countryData.reduce((s, d) => s + d.year, 0);
+                const sumY = countryData.reduce((s, d) => s + d.rate, 0);
+                const sumXY = countryData.reduce((s, d) => s + d.year * d.rate, 0);
+                const sumX2 = countryData.reduce((s, d) => s + d.year * d.year, 0);
+                return (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+            };
+
+            // === Averages (2002–2021) ===
+            const avgPoland = polandData.reduce((s, d) => s + d.rate, 0) / polandData.length || 0;
+            const avgRussia = russiaData.reduce((s, d) => s + d.rate, 0) / russiaData.length || 0;
+            const avgLithuania = lithuaniaData.reduce((s, d) => s + d.rate, 0) / lithuaniaData.length || 0;
+
+            document.getElementById('averages').innerHTML = `
+                <strong>Poland:</strong> ${avgPoland.toFixed(2)} per 100,000<br>
+                <strong>Russia:</strong> ${avgRussia.toFixed(2)} per 100,000<br>
+                <strong>Lithuania:</strong> ${avgLithuania.toFixed(2)} per 100,000
+            `;
+
+            // === Trend Slopes ===
+            const slopePoland = calcSlope(polandData);
+            const slopeRussia = calcSlope(russiaData);
+            const slopeLithuania = calcSlope(lithuaniaData);
+
+            document.getElementById('trends').innerHTML = `
+                <strong>Poland trend slope:</strong> ${slopePoland.toFixed(2)} (change per year)<br>
+                <strong>Russia trend slope:</strong> ${slopeRussia.toFixed(2)} (change per year)<br>
+                <strong>Lithuania trend slope:</strong> ${slopeLithuania.toFixed(2)} (change per year)
+            `;
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>
