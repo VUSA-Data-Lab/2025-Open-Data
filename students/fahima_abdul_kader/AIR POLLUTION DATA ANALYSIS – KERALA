@@ -7,140 +7,229 @@ import matplotlib.pyplot as plt
 import random
 
 
-# 1. Fetch Data from API
-API_URL = "https://api.data.gov.in/resource/3b01bcb8-0b14-4abf-b6f2-c1bfd384ba69"
-PI_KEY = "579b464db66ec23bdd000001b29e947e99d34e994946713c6c7737d7"
-
-params = {
-    "api-key": API_KEY,
-    "format": "json",
-    "limit": 5000
-}
-
-print("Fetching data from API...")
-response = requests.get(API_URL, params=params)
-data = response.json()
-records = data.get("records", [])
-df = pd.DataFrame(records)
-print(f"Total rows fetched: {len(df)}")
-print("Columns:", df.columns.tolist())
-
-# 2. Clean Data
-for col in ["min_value", "max_value", "avg_value"]:
-    df[col] = pd.to_numeric(df[col], errors="coerce")
-
-non_empty_data = df[~df[['min_value','max_value','avg_value']].isna().all(axis=1)]
-if 'city' not in non_empty_data.columns:
-    non_empty_data['city'] = non_empty_data['station']
+# 1. Fetch Data from API (Modular Function)
+def fetch_data(api_key: str, limit: int = 5000) -> pd.DataFrame:
+    """
+    Fetches air quality data from the Government of India Open Data API.
+    """
+    api_url = "https://api.data.gov.in/resource/3b01bcb8-0b14-4abf-b6f2-c1bfd384ba69"
+    params = {
+        "api-key": api_key,
+        "format": "json",
+        "limit": limit
+    }
+    print("Fetching data from API...")
+    response = requests.get(api_url, params=params)
+    response.raise_for_status()
+    data = response.json()
+    records = data.get("records", [])
+    df = pd.DataFrame(records)
+    print(f"Total rows fetched: {len(df)}")
+    print("Columns:", df.columns.tolist())
+    return df
 
 
-# 3. Filter data for Kerala
-my_state = "Kerala"
-state_data = non_empty_data[non_empty_data['state'] == my_state]
+
+# 2. Clean Data (Modular Function)
+
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Cleans and preprocesses the DataFrame: converts pollution values to numeric
+    and handles missing city/station names.
+    """
+    df = df.copy()  # Operate on a copy to avoid SettingWithCopyWarning
+    
+    # Coerce numeric columns, setting non-numeric values to NaN
+    for col in ["min_value", "max_value", "avg_value"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    # Drop rows where all three pollution measures are NaN
+    non_empty_data = df.dropna(subset=['min_value', 'max_value', 'avg_value'], how='all')
+
+    # Use 'station' as a fallback for 'city' if 'city' column is missing or empty
+    if 'city' not in non_empty_data.columns or non_empty_data['city'].isna().all():
+        non_empty_data['city'] = non_empty_data['station'].fillna('Unknown City')
+
+    return non_empty_data
 
 
-# 4. City-level analysis
-city_pollution_state = state_data.groupby('city')['avg_value'].mean()
-most_polluted_city = city_pollution_state.idxmax()
-least_polluted_city = city_pollution_state.idxmin()
-print(f"Most polluted city in {my_state}: {most_polluted_city}")
-print(f"Least polluted city in {my_state}: {least_polluted_city}")
+
+# 3. Filter by State (Modular Function)
+def filter_state_data(df: pd.DataFrame, state_name: str = "Kerala") -> pd.DataFrame:
+    """
+    Filters the DataFrame to include only records from the specified state.
+    """
+    return df[df['state'] == state_name]
 
 
-# 5. Worst pollutant type in Kerala
-pollutant_avg_state = state_data.groupby('pollutant_id')['avg_value'].mean()
-worst_pollutant = pollutant_avg_state.idxmax()
-worst_pollution_value = pollutant_avg_state.max()
-print(f"Worst pollutant in {my_state}: {worst_pollutant} ({worst_pollution_value:.2f} µg/m³)")
+# 4. City-level Analysis (Modular Function)
+def analyze_city_pollution(df_state: pd.DataFrame) -> tuple[pd.Series, str, str]:
+    """
+    Calculates the average pollution value for each city and identifies the
+    most and least polluted cities.
+    """
+    city_avg = df_state.groupby('city')['avg_value'].mean()
+    most_polluted = city_avg.idxmax()
+    least_polluted = city_avg.idxmin()
+    return city_avg, most_polluted, least_polluted
 
 
-# 6. Sorted Top pollutant cities in Kerala
-
-top_cities_state = city_pollution_state.sort_values(ascending=False).head(5)
-
-# 7. Simulate population migration (10%)
-population_cities = {city: random.randint(1000, 5000) for city in top_cities_state.index}
-migration_pct_city = 0.1
-dirtiest_city = top_cities_state.idxmax()
-cleanest_city = top_cities_state.idxmin()
-original_population_dirtiest = population_cities[dirtiest_city]
-moving_people = int(original_population_dirtiest * migration_pct_city)
-population_cities[dirtiest_city] -= moving_people
-population_cities[cleanest_city] += moving_people
-
-# Calculate percentage shifted
-percentage_shifted = (moving_people / original_population_dirtiest) * 100
-
-# Adjust pollution
-adjusted_pollution_city = top_cities_state.copy()
-adjusted_pollution_city[dirtiest_city] *= (1 - migration_pct_city)
-adjusted_pollution_city[cleanest_city] *= (1 + migration_pct_city / 2)
+# 5. Worst Pollutant Analysis (Modular Function)
+def analyze_pollutant(df_state: pd.DataFrame) -> tuple[str, float]:
+    """
+    Identifies the pollutant with the highest overall average value.
+    """
+    pollutant_avg = df_state.groupby('pollutant_id')['avg_value'].mean()
+    worst_pollutant = pollutant_avg.idxmax()
+    worst_value = pollutant_avg.max()
+    return worst_pollutant, worst_value
 
 
-# 8. Visualization: Before & After Migration
-plt.figure(figsize=(8,4))
-plt.bar(top_cities_state.index, top_cities_state.values, label="Before Migration", color='red')
-plt.bar(adjusted_pollution_city.index, adjusted_pollution_city.values, alpha=0.7, label="After Migration",color='green')
-plt.title(f"Pollution Before and After Population Migration in {my_state} (Worst Pollutant: {worst_pollutant})")
-plt.ylabel("Pollution Average (µg/m³)")
-plt.legend()
-plt.tight_layout()
-plt.show()
+
+# 6. Simulate Population Migration (Modular Function)
+def simulate_migration(
+    city_pollution: pd.Series, migration_pct: float = 0.1, seed: int = 42
+) -> tuple[pd.Series, pd.Series, dict, str, str, float]:
+    """
+    Simulates a percentage of the population moving from the dirtiest city
+    to the cleanest city among the top 5 polluted cities, and adjusts pollution
+    values proportionally.
+    """
+    random.seed(seed)
+    
+    # Get the top 5 cities by pollution level
+    top_cities = city_pollution.sort_values(ascending=False).head(5)
+    
+    # Assign arbitrary starting population for the simulation (for demonstration)
+    population_cities = {city: random.randint(1000, 5000) for city in top_cities.index}
+
+    dirtiest_city = top_cities.index[0]  # Safely get the top city
+    cleanest_city = top_cities.index[-1]  # Safely get the least polluted among the top 5
+    
+    original_population = population_cities[dirtiest_city]
+    moving_people = int(original_population * migration_pct)
+
+    # Update population
+    population_cities[dirtiest_city] -= moving_people
+    population_cities[cleanest_city] += moving_people
+
+    # Adjust pollution values proportionally (Simulation Assumption)
+    adjusted_pollution = top_cities.copy()
+    adjusted_pollution[dirtiest_city] *= (1.0 - migration_pct)
+    adjusted_pollution[cleanest_city] *= (1.0 + migration_pct / 2.0)
+
+    percentage_shifted = (moving_people / original_population) * 100.0
+    
+    return (
+        top_cities,
+        adjusted_pollution,
+        population_cities,
+        dirtiest_city,
+        cleanest_city,
+        percentage_shifted
+    )
 
 
-# 9. Line Graph Comparison
-plt.figure(figsize=(8,4))
-plt.plot(top_cities_state.index, top_cities_state.values, marker="o", label="Before Migration")
-plt.plot(adjusted_pollution_city.index,adjusted_pollution_city.values,marker="o",linestyle="--",label="After Migration")
-plt.title(f"Pollution Levels in {my_state} Before and After Migration")
-plt.xlabel("Cities")
-plt.ylabel("Pollution Average (µg/m³)")
-plt.legend()
-plt.grid(True)
-plt.tight_layout()
-plt.show()
 
-print(f"Approximately {percentage_shifted:.2f}% of the population from {dirtiest_city} shifted to {cleanest_city}.")
+# 7. Visualization Functions (Modular Functions)
+def plot_bar(before: pd.Series, after: pd.Series, worst_pollutant: str, state_name: str):
+    """Generates a bar plot comparing pollution before and after migration."""
+    plt.figure(figsize=(8, 4))
+    x = range(len(before.index))
+    width = 0.35
+    
+    plt.bar([i - width/2 for i in x], before.values, width, label="Before Migration", color='red')
+    plt.bar([i + width/2 for i in x], after.values, width, alpha=0.7, label="After Migration", color='green')
+    
+    plt.xticks(x, before.index, rotation=20)
+    plt.title(f"Pollution Before and After Migration in {state_name} (Worst Pollutant: {worst_pollutant})")
+    plt.ylabel("Pollution Average (µg/m³)")
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
 
-# 10.Scatter Plot: Pollution Before & After Migration
+def plot_line(before: pd.Series, after: pd.Series, state_name: str):
+    """Generates a line plot comparing pollution before and after migration."""
+    plt.figure(figsize=(8, 4))
+    plt.plot(before.index, before.values, marker="o", label="Before Migration")
+    plt.plot(after.index, after.values, marker="o", linestyle="--", label="After Migration")
+    plt.title(f"Pollution Levels in {state_name} Before and After Migration")
+    plt.xlabel("Cities")
+    plt.ylabel("Pollution Average (µg/m³)")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
-plt.figure(figsize=(10,6))
 
-# Before migration
-plt.scatter(top_cities_state.index, top_cities_state.values,
-            color='red', s=100, label='Before Migration')
+def plot_scatter(before: pd.Series, after: pd.Series, worst_pollutant: str, state_name: str):
+    """Generates a scatter plot comparing pollution before and after migration."""
+    plt.figure(figsize=(10, 6))
+    plt.scatter(before.index, before.values, color='red', s=100, label='Before Migration')
+    plt.scatter(after.index, after.values, color='green', s=100, label='After Migration')
+    
+    for city in before.index:
+        plt.text(city, after[city] + 0.5, f"{worst_pollutant}", ha='center', fontsize=9, color='blue')
+        
+    plt.title(f"City-level Pollution in {state_name} Before and After Migration")
+    plt.ylabel("Pollution Average (µg/m³)")
+    plt.xlabel("Cities")
+    plt.grid(True, linestyle='--', alpha=0.5)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
 
-# After migration
-plt.scatter(adjusted_pollution_city.index, adjusted_pollution_city.values,
-            color='green', s=100, label='After Migration')
 
-# Annotate points with worst pollutant
-for city in top_cities_state.index:
-    plt.text(city, adjusted_pollution_city[city]+0.5, f"{worst_pollutant}",
-             ha='center', fontsize=9, color='blue')
 
-plt.title(f"City-level Pollution in {my_state} Before and After Migration")
-plt.ylabel("Pollution Average (µg/m³)")
-plt.xlabel("Cities")
-plt.grid(True, linestyle='--', alpha=0.5)
-plt.legend()
-plt.tight_layout()
-plt.show()
+# 8. Main Program (Modular Function)
+def main():
+    """Main execution function for the air pollution analysis project."""
+    # Note: PEP 8 recommends using CONSTANT_NAMES for global variables.
+    API_KEY = "579b464db66ec23bdd000001b29e947e99d34e994946713c6c7737d7"
 
-# 10. Summary
+    df = fetch_data(API_KEY)
+    cleaned_df = clean_data(df)
+    kerala_data = filter_state_data(cleaned_df)
 
-print("\n--- SUMMARY---")
-print(
-    f"In {my_state}, {most_polluted_city} is the most polluted city, "
-    f"while {least_polluted_city} is the cleanest."
-)
-print(
-    f"The worst pollutant in Kerala is {worst_pollutant} "
-    f"with an average value of {worst_pollution_value:.2f} µg/m³."
-)
-print(
-    "If people move from highly polluted cities to cleaner cities, pollution in the dirtiest cities could decrease, "
-    "while cleaner cities might see a small increase. Authorities can encourage relocation, "
-    "promote green initiatives, and implement stricter emission controls in the dirtiest cities."
-)
+    # Analysis
+    city_pollution, most_polluted_city, least_polluted_city = analyze_city_pollution(kerala_data)
+    worst_pollutant, worst_value = analyze_pollutant(kerala_data)
+
+    # Simulation
+    (
+        top_cities,
+        adjusted_pollution,
+        population_cities,
+        dirtiest_city,
+        cleanest_city,
+        percentage_shifted
+    ) = simulate_migration(city_pollution)
+
+    # Visualizations
+    plot_bar(top_cities, adjusted_pollution, worst_pollutant, "Kerala")
+    plot_line(top_cities, adjusted_pollution, "Kerala")
+    plot_scatter(top_cities, adjusted_pollution, worst_pollutant, "Kerala")
+
+    # Summary
+    print("\n--- SUMMARY ---")
+    print(
+        f"In Kerala, {most_polluted_city} is the most polluted city, "
+        f"while {least_polluted_city} is the cleanest."
+    )
+    print(
+        f"The worst pollutant in Kerala is {worst_pollutant} "
+        f"with an average value of {worst_value:.2f} µg/m³."
+    )
+    print(
+        f"Approximately {percentage_shifted:.2f}% of the population from {dirtiest_city} shifted to {cleanest_city}."
+    )
+    print(
+        "If people move from highly polluted cities to cleaner cities, pollution in the dirtiest cities could decrease,"
+        "while cleaner cities might see a small increase. Authorities can encourage relocation, "
+        "promote green initiatives, and implement stricter emission controls in the dirtiest cities."
+    )
+
+
+if __name__ == "__main__":
+    main()
