@@ -113,31 +113,31 @@ Closest Asteroid to Earth:
 Charts generated and saved as PNG files.
 ```
 ### 🧪 Technologies Used
-Python 3
+- Python 3
 
-Requests
+- Requests
 
-Pandas
+- Pandas
 
-Matplotlib
+- Matplotlib
 
-JSON parsing
+- JSON parsing
 
-argparse (command-line arguments)
+- argparse (command-line arguments)
 
-Modular programming (4 Python modules)
+- Modular programming (4 Python modules)
 
-PEP8 style conventions
+- PEP8 style conventions
 
 ### 🎓 Academic Compliance
 This project satisfies all requirements:
 
-✔ Uses publicly accessible open data
-✔ Performs data filtering, cleaning, analysis, and visualization
-✔ Code is modular, PEP8-compliant, and maintainable
-✔ Hosted in a public GitHub repository
-✔ Includes a final PDF report inside /Report
-✔ Includes visual results inside /Results
+- ✔ Uses publicly accessible open data
+- ✔ Performs data filtering, cleaning, analysis, and visualization
+- ✔ Code is modular, PEP8-compliant, and maintainable
+- ✔ Hosted in a public GitHub repository
+- ✔ Includes a final PDF report inside /Report
+- ✔ Includes visual results inside /Results
 
 ### 📄 License
 This project is distributed under the MIT License.
