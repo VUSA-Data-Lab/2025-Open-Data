@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Alcohol-Attributable Death Rates 2002-2021</title>
+    <!-- We use Chart.js from CDN – no need to download anything -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 30px;
+        line-height: 1.5;
+      }
+      table {
+        border-collapse: collapse;
+        width: 70%;
+        margin: 25px 0;
+      }
+      th,
+      td {
+        border: 1px solid #aaa;
+        padding: 8px;
+        text-align: center;
+      }
+      th {
+        background: #f0f0f0;
+      }
+      .chart-container {
+        width: 900px;
+        height: 450px;
+        margin: 40px auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>
+      Alcohol-Attributable Death Rates<br />Russia · Poland · Lithuania
+      (2002-2021)
+    </h1>
+
+    <table id="dataTable">
+      <thead>
+        <tr>
+          <th>Year</th>
+          <th>Poland</th>
+          <th>Russia</th>
+          <th>Lithuania</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <h2>Poland vs Russia</h2>
+    <div class="chart-container"><canvas id="chartPR"></canvas></div>
+
+    <h2>Lithuania</h2>
+    <div class="chart-container"><canvas id="chartLT"></canvas></div>
+
+    <h2>All three countries together</h2>
+    <div class="chart-container"><canvas id="chartAll"></canvas></div>
+
+    <p id="stats"></p>
+
+    <script>
+      // Main function that starts everything when the page loads
+      async function start() {
+        try {
+          // 1. Load the CSV file
+          const response = await fetch("alcoholdeath.csv");
+          if (!response.ok) throw new Error("File not found");
+          const text = await response.text();
+
+          // 2. Turn CSV into array of objects
+          const rows = text.split("\n").slice(1); // skip header
+          let data = [];
+
+          for (let row of rows) {
+            const cols = row.split(",");
+            if (cols.length < 16) continue; // safety
+            const country = cols[3].trim(); // location_name
+            const year = parseInt(cols[12]); // year
+            const rate = parseFloat(cols[13]); // value (rate per 100,000)
+
+            if (
+              ["Poland", "Russian Federation", "Lithuania"].includes(country) &&
+              year >= 2002 &&
+              year <= 2021
+            ) {
+              data.push({ country, year, rate });
+            }
+          }
+
+          // 3. Separate the three countries
+          const years = [...new Set(data.map((d) => d.year))].sort(
+            (a, b) => a - b
+          );
+          const poland = data.filter((d) => d.country === "Poland");
+          const russia = data.filter((d) => d.country === "Russian Federation");
+          const lithuania = data.filter((d) => d.country === "Lithuania");
+
+          // 4. Build the table
+          const tbody = document.querySelector("#dataTable tbody");
+          years.forEach((y) => {
+            const p = poland.find((x) => x.year === y)?.rate || "—";
+            const r = russia.find((x) => x.year === y)?.rate || "—";
+            const l = lithuania.find((x) => x.year === y)?.rate || "—";
+            tbody.innerHTML += `<tr><td>${y}</td><td>${
+              typeof p === "number" ? p.toFixed(2) : p
+            }</td>
+                               <td>${
+                                 typeof r === "number" ? r.toFixed(2) : r
+                               }</td>
+                               <td>${
+                                 typeof l === "number" ? l.toFixed(2) : l
+                               }</td></tr>`;
+          });
+
+          // 5. Helper to draw any chart
+          function draw(id, datasets, title) {
+            new Chart(document.getElementById(id), {
+              type: "line",
+              data: { labels: years, datasets },
+              options: {
+                responsive: true,
+                plugins: { title: { display: true, text: title } },
+                scales: {
+                  y: { title: { display: true, text: "Deaths per 100,000" } },
+                  x: { title: { display: true, text: "Year" } },
+                },
+              },
+            });
+          }
+
+          // 6. Create the three charts
+          draw(
+            "chartPR",
+            [
+              {
+                label: "Poland",
+                data: years.map(
+                  (y) => poland.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "blue",
+              },
+              {
+                label: "Russia",
+                data: years.map(
+                  (y) => russia.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "red",
+              },
+            ],
+            "Poland vs Russia"
+          );
+
+          draw(
+            "chartLT",
+            [
+              {
+                label: "Lithuania",
+                data: years.map(
+                  (y) => lithuania.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "green",
+              },
+            ],
+            "Lithuania"
+          );
+
+          draw(
+            "chartAll",
+            [
+              {
+                label: "Poland",
+                data: years.map(
+                  (y) => poland.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "blue",
+              },
+              {
+                label: "Russia",
+                data: years.map(
+                  (y) => russia.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "red",
+              },
+              {
+                label: "Lithuania",
+                data: years.map(
+                  (y) => lithuania.find((x) => x.year === y)?.rate || null
+                ),
+                borderColor: "green",
+              },
+            ],
+            "All three countries together"
+          );
+
+          // 7. Calculate averages and slopes (simple linear regression)
+          function average(arr) {
+            return (arr.reduce((s, x) => s + x.rate, 0) / arr.length).toFixed(
+              2
+            );
+          }
+          function slope(arr) {
+            const n = arr.length;
+            const sx = arr.reduce((s, x) => s + x.year, 0);
+            const sy = arr.reduce((s, x) => s + x.rate, 0);
+            const sxy = arr.reduce((s, x) => s + x.year * x.rate, 0);
+            const sx2 = arr.reduce((s, x) => s + x.year * x.year, 0);
+            return ((n * sxy - sx * sy) / (n * sx2 - sx * sx)).toFixed(2);
+          }
+
+          // 8. Show the numbers under the charts
+          document.getElementById("stats").innerHTML = `
+            <h3>Summary numbers (2002-2021)</h3>
+            <strong>Average rate:</strong> Poland ${average(
+              poland
+            )} | Russia ${average(russia)} | Lithuania ${average(
+            lithuania
+          )}<br><br>
+            <strong>Trend per year (slope):</strong> Poland ${slope(
+              poland
+            )} | Russia ${slope(russia)} | Lithuania ${slope(lithuania)}
+        `;
+        } catch (err) {
+          document.body.innerHTML += `<p style="color:red">Error - make sure alcoholdeath.csv is in the same folder!</p>`;
+        }
+      }
+
+      // Start everything when the page is ready
+      start();
+    </script>
+  </body>
+</html>
