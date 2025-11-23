@@ -1,0 +1,52 @@
+body {
+    background: #0d1117;
+    color: #c9d1d9;
+    font-family: Arial, sans-serif;
+    margin: 0;
+}
+
+header, footer {
+    padding: 1rem 2rem;
+    background: #161b22;
+    border-bottom: 1px solid #30363d;
+}
+
+.controls {
+    padding: 1rem;
+    background: #161b22;
+    display: flex;
+    gap: 1rem;
+}
+
+input, select, button {
+    padding: 0.4rem;
+    background: #0d1117;
+    border: 1px solid #30363d;
+    color: #fff;
+}
+
+button {
+    background: #00ffc8;
+    color: #000;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.panel {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    padding: 1rem;
+    gap: 1rem;
+}
+
+.chart-box, .stats {
+    background: #161b22;
+    padding: 1rem;
+    border: 1px solid #30363d;
+    border-radius: 10px;
+}
+
+.stats li {
+    margin: 0.5rem 0;
+    color: #8b949e;
+}
