@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="controls">
+    <select id="country-select">
+        {% for c in countries %}
+        <option value="{{ c.code }}" {% if c.code == default_code %}selected{% endif %}>
+            {{ c.name }} ({{ c.code }})
+        </option>
+        {% endfor %}
+    </select>
+
+    <input type="number" id="start-year" placeholder="1960">
+    <input type="number" id="end-year" placeholder="2020">
+    <button id="update-btn">Update</button>
+</div>
+
+<div class="panel">
+    <div class="chart-box">
+        <h2 id="title">Population</h2>
+        <canvas id="chart"></canvas>
+        <p id="download"></p>
+    </div>
+
+    <div class="stats">
+        <ul id="stats"></ul>
+
+        <h3 style="margin-top:20px;">Year-to-Year Changes</h3>
+        <table id="year-table" style="color:white; width:100%; margin-top:10px; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th>Year</th>
+                    <th>Population</th>
+                    <th>Change</th>
+                    <th>% Change</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+
+        <h3 style="margin-top:20px;">World Population Share</h3>
+        <ul id="world-share"></ul>
+    </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async function () {
+    let chartInstance = null;
+
+    async function fetchData() {
+        const code = document.getElementById("country-select").value;
+        const start = document.getElementById("start-year").value;
+        const end = document.getElementById("end-year").value;
+
+        let url = `/api/country-data?code=${code}`;
+        if (start) url += `&start=${start}`;
+        if (end) url += `&end=${end}`;
+
+        const res = await fetch(url);
+        return res.json();
+    }
+
+    function render(data) {
+        const ctx = document.getElementById("chart").getContext("2d");
+
+        if (chartInstance) chartInstance.destroy();
+
+        chartInstance = new Chart(ctx, {
+            type: "line",
+            data: {
+                labels: data.years,
+                datasets: [{
+                    label: "Population",
+                    data: data.population,
+                    borderColor: "#00ffc8",
+                    backgroundColor: "rgba(0,255,200,0.2)",
+                    tension: 0.3,
+                    borderWidth: 2,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: { 
+                    legend: { labels: { color: "#fff" } }
+                },
+                scales: {
+                    x: { ticks: { color: "#fff" } },
+                    y: { ticks: { color: "#fff" } }
+                }
+            }
+        });
+
+        document.getElementById("download").innerHTML =
+            `<a href="${data.chart_url}" download style="color:#00ffc8">Download chart (PNG)</a>`;
+
+        document.getElementById("stats").innerHTML = `
+            <li>Period: ${data.stats.start_year} → ${data.stats.end_year}</li>
+            <li>Population: ${data.stats.start_pop.toLocaleString()} → ${data.stats.end_pop.toLocaleString()}</li>
+            <li>Absolute growth: ${data.stats.absolute_growth.toLocaleString()}</li>
+            <li>Relative growth: ${data.stats.relative_growth_pct.toFixed(2)}%</li>
+            <li>Max: ${data.stats.max_population.toLocaleString()} in ${data.stats.max_year}</li>
+        `;
+
+        //  Year-to-Year Table 
+        let tbody = document.querySelector("#year-table tbody");
+        tbody.innerHTML = "";
+        data.yearly_table.forEach(row => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${row.year}</td>
+                    <td>${row.population.toLocaleString()}</td>
+                    <td>${row.change.toLocaleString()}</td>
+                    <td>${row.pct.toFixed(2)}%</td>
+                </tr>
+            `;
+        });
+
+        //  World Population Share 
+        let shareList = document.getElementById("world-share");
+        shareList.innerHTML = "";
+        data.world_share.forEach((s, idx) => {
+            if (s !== null) {
+                shareList.innerHTML += `
+                    <li>${data.years[idx]}: ${s.toFixed(4)}%</li>
+                `;
+            }
+        });
+    }
+
+    document.getElementById("update-btn").onclick = async () => {
+        render(await fetchData());
+    };
+
+    document.getElementById("country-select").onchange = async () => {
+        render(await fetchData());
+    };
+
+    render(await fetchData());
+});
+</script>
+
+{% endblock %}
