@@ -4,58 +4,97 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 
-# 1️ Fetch data from World Bank API
 print("Fetching data from World Bank...")
 
 url_female = "https://api.worldbank.org/v2/country/LT/indicator/SE.TER.ENRR.FE?format=json"
 url_male   = "https://api.worldbank.org/v2/country/LT/indicator/SE.TER.ENRR.MA?format=json"
 
-# Use requests to get data correctly
 female_data = requests.get(url_female).json()[1]
 male_data   = requests.get(url_male).json()[1]
 
-# Convert to DataFrames
 female_df = pd.DataFrame(female_data)[['date', 'value']].rename(columns={'value': 'female_enrollment'})
 male_df   = pd.DataFrame(male_data)[['date', 'value']].rename(columns={'value': 'male_enrollment'})
 
-# Merge & clean
 df = pd.merge(female_df, male_df, on='date')
 df = df.dropna().sort_values(by='date')
-print(f"Data fetched for {len(df)} years.\n")
 display(df.head())
 
-# 2️ Calculate latest statistics
+
+# FIRST DIAGRAM – Enrollment Rate (2000–2022)
+
+base_url = "http://api.worldbank.org/v2/country/LT/indicator/SE.TER.ENRR"
+params = {"format": "json", "per_page": 1000}
+
+all_records = []
+page = 1
+while True:
+    params["page"] = page
+    r = requests.get(base_url, params=params)
+    data_json = r.json()
+    if not data_json or len(data_json) < 2 or not data_json[1]:
+        break
+    all_records.extend(data_json[1])
+    metadata = data_json[0]
+    if page >= int(metadata.get("pages", 1)):
+        break
+    page += 1
+
+df_raw = pd.DataFrame(all_records)
+df2 = df_raw[["date", "value"]].copy()
+df2["year"] = pd.to_numeric(df2["date"], errors="coerce").astype("Int64")
+df2["value"] = pd.to_numeric(df2["value"], errors="coerce")
+df2 = df2[(df2["year"] >= 2000) & (df2["year"] <= 2022)]
+df2 = df2.dropna().sort_values("year")
+
+plt.figure(figsize=(11, 5))
+plt.plot(df2["year"], df2["value"], marker='o')
+plt.title("Education Enrollment Rate in Lithuania (2000–2022)")
+plt.xlabel("Year")
+plt.ylabel("Enrollment Rate (%)")
+plt.grid(True)
+plt.xticks(df2["year"], rotation=45)
+plt.tight_layout()
+plt.show()
+
+
+# STATISTICS
+
 latest_year = df.iloc[-1]['date']
 female_latest = df.iloc[-1]['female_enrollment']
 male_latest = df.iloc[-1]['male_enrollment']
 gender_gap = female_latest - male_latest
 
 print(f"In {latest_year}:")
-print(f"  Female Enrollment = {female_latest:.2f}%")
-print(f"  Male Enrollment   = {male_latest:.2f}%")
-print(f"  Gender Gap        = {gender_gap:.2f}% (Females higher)\n")
+print(f"Female Enrollment = {female_latest:.2f}%")
+print(f"Male Enrollment   = {male_latest:.2f}%")
+print(f"Gender Gap        = {gender_gap:.2f}%\n")
 
-# 3️ Simulate Policy Effect (+10% male enrollment)
-improvement_factor = 0.10
-male_adjusted = male_latest * (1 + improvement_factor)
+
+# POLICY SIMULATION
+
+male_adjusted = male_latest * 1.10
 female_adjusted = female_latest
 adjusted_gap = female_adjusted - male_adjusted
 
-print(f"After Simulation:")
-print(f"  Male Enrollment   = {male_adjusted:.2f}% (after +10%)")
-print(f"  New Gender Gap    = {adjusted_gap:.2f}%\n")
+print("After Simulation:")
+print(f"Male Enrollment = {male_adjusted:.2f}%")
+print(f"New Gender Gap  = {adjusted_gap:.2f}%\n")
 
-# 4️ Visualization 1: Bar Chart (Before vs After)
+
+# SECOND DIAGRAM – Bar Chart
+
 plt.figure(figsize=(8,5))
-plt.bar(['Male (Before)', 'Male (After)'], [male_latest, male_adjusted], color=['red', 'green'])
-plt.bar(['Female (Before)', 'Female (After)'], [female_latest, female_adjusted], alpha=0.6, color=['pink', 'skyblue'])
+plt.bar(['Male (Before)', 'Male (After)'], [male_latest, male_adjusted])
+plt.bar(['Female (Before)', 'Female (After)'], [female_latest, female_adjusted], alpha=0.6)
 plt.title(f"Tertiary Enrollment in Lithuania ({latest_year}) — Before & After Policy Simulation")
 plt.ylabel("Enrollment Rate (%)")
 plt.legend(['Before Policy', 'After Policy'])
 plt.tight_layout()
 plt.show()
 
-# 5 Visualization 2: Line Graph (Trends)
+
+# THIRD DIAGRAM – Gender Trends
+
 plt.figure(figsize=(8,4))
 plt.plot(df['date'], df['female_enrollment'], marker='o', label='Female Enrollment')
 plt.plot(df['date'], df['male_enrollment'], marker='o', linestyle='--', label='Male Enrollment')
@@ -67,20 +106,16 @@ plt.grid(True, linestyle='--', alpha=0.6)
 plt.tight_layout()
 plt.show()
 
-# 6️ Visualization 3: Scatter Plot (Comparison)
-# Scatter Plot: Enrollment Before & After Policy Simulation
+
+# FOURTH DIAGRAM – Scatter Plot
+
 plt.figure(figsize=(8,6))
+plt.scatter(df['female_enrollment'], df['male_enrollment'], s=80, label='Before Policy')
+plt.scatter(df['female_enrollment'], df['male_enrollment'] * 1.10, s=80, label='After Policy')
 
-# Before policy (original data)
-plt.scatter(df['female_enrollment'], df['male_enrollment'], color='red', s=80, label='Before Policy')
-
-# After policy (simulate +10% male enrollment)
-plt.scatter(df['female_enrollment'], df['male_enrollment'] * 1.10, color='green', s=80, label='After Policy')
-
-# Annotate latest year
 latest_female = df.iloc[-1]['female_enrollment']
 latest_male   = df.iloc[-1]['male_enrollment']
-plt.text(latest_female, latest_male*1.10 + 0.5, 'Simulation +10% male', color='blue', fontsize=10, ha='center')
+plt.text(latest_female, latest_male*1.10 + 0.5, 'Simulation +10% male', fontsize=10)
 
 plt.title("Tertiary Enrollment: Before & After Policy Simulation")
 plt.xlabel("Female Enrollment (%)")
@@ -91,22 +126,21 @@ plt.tight_layout()
 plt.show()
 
 
-# 7️ Summary and Interpretation
-print("\n--- SUMMARY ---")
+# SUMMARY
+
+print("--- SUMMARY ---")
 print(f"In {latest_year}, female tertiary enrollment ({female_latest:.2f}%) was higher than male enrollment ({male_latest:.2f}%).")
-print("This shows that more women pursue higher education than men in Lithuania.")
 
 print("\n--- POSSIBLE REASONS ---")
-print("1️. Women increasingly value higher education for career advancement.")
-print("2️. Men may enter the workforce earlier or prefer vocational routes.")
-print("3. Gender stereotypes may affect academic motivation and field choice.")
+print("1. Women value higher education for career growth.")
+print("2. Men often enter workforce earlier or choose vocational paths.")
+print("3. Stereotypes influence academic preferences.")
 
 print("\n--- POSSIBLE SOLUTIONS ---")
-print("1. Encourage male participation with scholarships and awareness programs.")
-print("2. Provide flexible study options for working or late-entry men.")
-print("3. Offer targeted counseling to balance gender participation in universities.")
-print("4. Promote STEM education equally across genders.")
+print("1. Awareness programs and scholarships for men.")
+print("2. Flexible study options.")
+print("3. Counselling and encouragement for balanced participation.")
+print("4. Promote STEM equally.")
 
 print("\n--- SIMULATION RESULT ---")
-print(f"If male enrollment rises by 10%, the gender gap decreases from {gender_gap:.2f}% to {adjusted_gap:.2f}%.")
-print("This suggests inclusive education policies can help achieve gender balance in higher education.")
+print(f"Gap reduces from {gender_gap:.2f}% to {adjusted_gap:.2f}% after simulation.")
