@@ -1,0 +1,103 @@
+<!DOCTYPE html SYSTEM "http://www.thymeleaf.org/dtd/xhtml1-strict-thymeleaf-4.dtd">
+<html xmlns:th="http://www.thymeleaf.org">
+	<head>
+		<meta charset="ISO-8859-1">
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script> 
+		<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css">
+		<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+	</head>
+	<body>
+		<a href="/data/traffic-accidents" style="border:1px solid;border-radius:20px;padding: 0px 5px 5px 5px;text-decoration:none;margin-top:60px;margin-left:30px;">Main page</a>
+		<div id="chart_div" style="width:900px; height:500px;margin-top:40px;"></div>
+		
+		<table class="table">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Incident location</th>
+					<th>Weather condition</th>
+					
+					<th>Municipality<th>
+				</tr>
+			</thead>
+			<tbody>
+				<tr th:each="accidentDetails : ${AccidentDetails}" >
+					<td th:text="${accidentDetails.getDateTime()}"></td>
+					<td th:text="${accidentDetails.getIncidentLocation()}"></td>
+					<td th:text="${accidentDetails.getWeatherCondition()}"></td>
+					
+					
+
+					<td th:text="${accidentDetails.getMunicipality()}"></td>
+				</tr>
+			</tbody>
+		</table>
+		
+		
+		<ul th:each="detail : ${ReasonList}">
+								<li th:text="${detail}"><li>
+							</ul>
+		
+		<h4>Report</h4>
+		<p>
+			The road surace conditions were
+			<span th:each="data : ${RoadSurfaceConditions}" th:text="${data}+ ' ,'"></span>
+			which contributed to the occurence of traffic accidents.
+			Among the reported cases, there were
+			<span th:text="${DrunkOffenders}"}></span> drunk offenders and
+			<span th:text="${IntoxicatedCounter}"></span> offenders under the influence of drugs or intoxicating substances.
+			Additionally,
+			<span th:text="${LicenceCount}"></span> drivers involved in the accidents did not possess a valid driving licence.
+		</p>
+
+									
+								
+								
+								
+								
+								
+								
+								
+								
+									
+								
+								
+									
+									
+		<script th:inline="javascript">
+			/*<![CDATA[*/
+			var real_data = /*[[${filteredData}]]*/
+			/*]]>*/
+			
+			$(document).ready(function(){
+				google.charts.load('current',{
+					packages: ['corechart','bar']
+				});
+				google.charts.setOnLoadCallback(drawColumnChart);
+			})
+			
+			function drawColumnChart(){
+				var data = new google.visualization.DataTable();
+				data.addColumn('string', 'Dates');
+				data.addColumn('number', 'Accidents(rates)');
+				Object.keys(real_data).forEach(function(key){
+					data.addRow([key,real_data[key]]);
+					
+				});
+				var options = {
+					title : 'Traffic accidents report',
+					hAxis : {
+						title : 'Dates',
+					},
+					vAxis : {
+						title : "Accidents"
+					}
+					
+					
+				};
+				var chart = new google.visualization.ColumnChart(document.getElementById("chart_div"));
+				chart.draw(data,options)
+			}
+		</script>
+		</body>
+</html>
